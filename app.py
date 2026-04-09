@@ -6,6 +6,35 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+def get_theme_type() -> str:
+    try:
+        return getattr(st.context.theme, "type", "light")
+    except Exception:
+        return "light"
+
+
+def get_theme_tokens() -> dict:
+    theme_type = get_theme_type()
+    if theme_type == "dark":
+        return {
+            "theme_type": "dark",
+            "plotly_template": "plotly_dark",
+            "card_bg": "#111827",
+            "border": "#334155",
+            "text": "#E5E7EB",
+            "muted": "#94A3B8",
+        }
+    return {
+        "theme_type": "light",
+        "plotly_template": "plotly_white",
+        "card_bg": "#FFFFFF",
+        "border": "#E2E8F0",
+        "text": "#0F172A",
+        "muted": "#475569",
+    }
+
+
+THEME = get_theme_tokens()
 from src.explain import build_explanation_block
 from src.inference import get_stage_feature_map
 from src.loader import AppArtifacts, load_artifacts
@@ -209,26 +238,35 @@ def render_sidebar(artifacts: AppArtifacts) -> None:
     st.sidebar.write(f"**Model version:** {manifest.get('model_version', 'n/a')}")
     st.sidebar.write(f"**Policy version:** {manifest.get('policy_version', 'n/a')}")
 
-    with st.sidebar.expander("Loaded artifact files", expanded=False):
-        if artifacts.loaded_files:
-            for item in artifacts.loaded_files:
-                st.write(f"- {item}")
-        else:
-            st.write("No artifact files were found. The app will use fallback scoring.")
+    with st.sidebar:
+        st.markdown("## Credit Scoring System")
+        st.caption(
+        "An end-to-end credit scoring app for single-case review, "
+        "batch scoring, and decision policy interpretation."
+        )
 
-    if not artifacts.schema.empty:
-        with st.sidebar.expander("Expected input fields", expanded=False):
-            preview = artifacts.schema[[c for c in ["field_name", "type", "required_for_model", "description"] if c in artifacts.schema.columns]].copy()
-            preview.columns = ["Field", "Type", "Required for model", "Description"][: len(preview.columns)]
-            st.dataframe(preview, use_container_width=True, hide_index=True)
+        st.markdown("### Functions")
+        st.markdown(
+        """
+        - **Single Scoring**
+        - **Batch Scoring**
+        - **Decision Policy**
+        - **Artifact-backed Deployment**
+        """
+        )
 
+    with st.expander("Loaded artifact files", expanded=False):
+        st.write("Model, policy, schema, and manifest files are loaded from the artifacts folder.")
+
+    with st.expander("Expected input fields", expanded=False):
+        st.write("Check the required fields for scoring input.")
 
 def render_hero() -> None:
     st.markdown(
         r"""
         <div class="hero-shell">
             <div class="hero-kicker">Retail Banking • Decisioning • Payment Risk</div>
-            <div class="hero-title">Credit Decision Console</div>
+            <div class="hero-title">Credit Scoring</div>
             <div class="hero-sub">A banking-style scoring workspace for application routing, champion-model inference, and policy-led payment decisions.</div>
             <div class="hero-meta">
                 <div class="hero-pill">Champion inference enabled</div>
@@ -314,6 +352,29 @@ def render_warning_block(row: dict) -> None:
     if technical_status_note:
         st.info(technical_status_note)
 
+FRIENDLY_FIELD_LABELS = {
+    "customer_id": "Customer ID",
+    "main_income": "Main Monthly Income",
+    "num_open_loans": "Number of Open Loans",
+    "recent_ontime_ratio": "Recent On-time Payment Ratio",
+    "utilization_ratio": "Credit Utilization Ratio",
+    "external_risk_score": "External Credit Risk Score",
+    "installment_paid_before_due_ratio": "Paid Before Due Ratio",
+    "a_has_external_credit_exposure": "Has External Credit Exposure",
+    "a_tax_amount_4527230_max": "Maximum Recorded Tax-related Amount",
+    "b_has_paid_before_due_signal": "Has Early Payment Signal",
+    "b_has_recent_dpd": "Has Recent Late Payment",
+    "b_annuity_max": "Maximum Installment Amount",
+    "b_amtinstpaidbefdue_max": "Maximum Amount Paid Before Due",
+    "b_paid_before_due_to_annuity_ratio": "Early Payment to Installment Ratio",
+    "b_avgmaxdpdlast9m_max": "Recent Delinquency Severity (Last 9 Months)",
+    "c_actualdpd_max": "Maximum Actual Days Past Due",
+    "c_recent_40dpd_flag": "Recent 40+ DPD Flag",
+    "c_avgdbddpdlast24m_max": "Average Late Payment Severity (24 Months)",
+    "c_avgdpdtolclosure24_max": "Average DPD to Closure (24 Months)",
+    "c_recent_vs_long_dpd_ratio": "Recent vs Long-term Delinquency Ratio",
+    "c_days_since_last_40dpd": "Days Since Last 40+ DPD"
+}
 
 def build_single_form(sample_payload: dict, artifacts: AppArtifacts) -> dict:
     left, right = st.columns(2)
@@ -345,23 +406,35 @@ def build_single_form(sample_payload: dict, artifacts: AppArtifacts) -> dict:
     stage_feature_map = get_stage_feature_map(artifacts)
     stage_features = stage_feature_map.get(stage_preview, [])
 
-    st.markdown("<div class='section-title'>Stage-specific Model Inputs</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>Credit Risk Input Details</div>", unsafe_allow_html=True)
     st.caption(f"Current routing preview: Stage {stage_preview}. These inputs feed the exported sklearn pipeline for that stage.")
+
     feature_cols = st.columns(2)
     for idx, feature in enumerate(stage_features):
         if feature in payload:
             continue
+
         default_val = sample_payload.get(feature)
-        label = feature.replace("_", " ").title()
+        label = FRIENDLY_FIELD_LABELS.get(feature, feature.replace("_", " ").title())
+
         with feature_cols[idx % 2]:
-            payload[feature] = st.text_input(label, value="" if default_val in (None, "") else str(default_val), help=feature)
+            payload[feature] = st.text_input(
+                label,
+                value="" if default_val in (None, "") else str(default_val),
+                help=feature,
+            )
 
     with st.expander("Advanced JSON Input", expanded=False):
-        json_text = st.text_area("Optional JSON override", value=json.dumps(payload, indent=2, ensure_ascii=False), height=320)
+        json_text = st.text_area(
+        "Optional JSON override",
+        value=json.dumps(payload, indent=2, ensure_ascii=False),
+        height=320,
+        )
         try:
             payload = json.loads(json_text)
         except Exception:
             st.caption("JSON is invalid. The form values above will be used.")
+
     return payload
 
 
@@ -428,21 +501,45 @@ def render_single_case(artifacts: AppArtifacts) -> None:
             mime="text/csv",
         )
 
-
 def render_batch_case(artifacts: AppArtifacts) -> None:
     st.subheader("Batch Scoring")
     st.caption("Upload a CSV file, validate rows, run scoring, and review the result dashboard.")
-    uploaded = st.file_uploader("Upload input CSV", type=["csv"])
-    sample_path = SAMPLE_DIR / "sample_batch.csv"
-    if sample_path.exists():
-        st.caption("Sample file available: sample_data/sample_batch.csv")
 
-    if uploaded is None:
+    sample_path = SAMPLE_DIR / "sample_batch.csv"
+
+    if "batch_input_df" not in st.session_state:
+        st.session_state.batch_input_df = None
+
+    upload_col, demo_col = st.columns([1, 1])
+
+    with upload_col:
+        uploaded = st.file_uploader("Upload input CSV", type=["csv"], key="batch_uploader")
+
+    with demo_col:
+        if sample_path.exists():
+            st.download_button(
+                label="Download sample CSV",
+                data=sample_path.read_bytes(),
+                file_name="sample_batch.csv",
+                mime="text/csv",
+                width="stretch",
+            )
+            if st.button("Use demo batch", width="stretch", key="use_demo_batch_btn"):
+                st.session_state.batch_input_df = pd.read_csv(sample_path)
+                st.success("Loaded demo batch from sample_data/sample_batch.csv")
+        else:
+            st.caption("No sample CSV found in sample_data/sample_batch.csv")
+
+    if uploaded is not None:
+        st.session_state.batch_input_df = pd.read_csv(uploaded)
+
+    input_df = st.session_state.batch_input_df
+
+    if input_df is None:
         return
 
-    input_df = pd.read_csv(uploaded)
     st.markdown("<div class='section-title'>Upload Preview</div>", unsafe_allow_html=True)
-    st.dataframe(input_df.head(20), use_container_width=True, hide_index=True)
+    st.dataframe(input_df.head(20), width="stretch", hide_index=True)
 
     missing = validate_required_columns(input_df, artifacts.schema)
     valid_df, invalid_df, validation_summary = validate_batch_dataframe(input_df)
@@ -460,51 +557,87 @@ def render_batch_case(artifacts: AppArtifacts) -> None:
     if not invalid_df.empty:
         st.info("Some rows cannot be scored until input issues are fixed. You can still score the valid rows.")
 
-    if st.button("Run Batch Scoring", type="primary"):
+    run_batch = st.button("Run Batch Scoring", type="primary", key="run_batch_scoring_btn")
+
+    if run_batch:
         scored_df, invalid_df2, batch_summary = score_batch_dataframe(input_df, artifacts)
         if scored_df.empty and invalid_df2.empty:
             st.error("No output was produced.")
             return
 
-        st.markdown("<div class='section-title'>Batch Result Summary</div>", unsafe_allow_html=True)
-        s1, s2, s3, s4 = st.columns(4)
-        s1.metric("Scored customers", batch_summary.get("scored_rows", 0))
-        s2.metric("Average score", batch_summary.get("avg_score", "n/a"))
-        s3.metric("Most common decision", batch_summary.get("top_action", "n/a"))
-        s4.metric("Most common stage", batch_summary.get("top_stage", "n/a"))
+        st.session_state.batch_scored_df = scored_df
+        st.session_state.batch_invalid_df = invalid_df2
+        st.session_state.batch_summary = batch_summary
 
-        if not scored_df.empty:
-            scored_df = apply_policy_to_dataframe(scored_df, artifacts)
-            scored_df = build_explanation_block(scored_df, artifacts)
+    if "batch_scored_df" not in st.session_state or "batch_summary" not in st.session_state:
+        return
 
-            col1, col2 = st.columns(2)
-            col1.plotly_chart(plot_batch_score_histogram(scored_df), use_container_width=True)
-            col2.plotly_chart(plot_action_distribution(scored_df), use_container_width=True)
-            col3, col4 = st.columns(2)
-            col3.plotly_chart(plot_stage_distribution(scored_df), use_container_width=True)
-            col4.plotly_chart(plot_data_quality_summary(scored_df, invalid_df2), use_container_width=True)
-            st.plotly_chart(plot_reason_frequency(scored_df), use_container_width=True)
+    scored_df = st.session_state.batch_scored_df
+    invalid_df2 = st.session_state.get("batch_invalid_df", pd.DataFrame())
+    batch_summary = st.session_state.batch_summary
 
-        with st.expander("Scored Output Preview", expanded=True):
-            st.dataframe(scored_df.head(100), use_container_width=True, hide_index=True)
-        if not invalid_df2.empty:
-            with st.expander("Rows Requiring Fix", expanded=False):
-                st.dataframe(invalid_df2.head(100), use_container_width=True, hide_index=True)
+    st.markdown("<div class='section-title'>Batch Result Summary</div>", unsafe_allow_html=True)
+    s1, s2, s3, s4 = st.columns(4)
+    s1.metric("Scored customers", batch_summary.get("scored_rows", 0))
+    s2.metric("Average score", batch_summary.get("avg_score", "n/a"))
+    s3.metric("Most common decision", batch_summary.get("top_action", "n/a"))
+    s4.metric("Most common stage", batch_summary.get("top_stage", "n/a"))
 
-        download_col1, download_col2 = st.columns(2)
-        download_col1.download_button(
-            "Download scored output",
-            data=dataframe_to_csv_bytes(scored_df),
-            file_name="batch_scored_output.csv",
-            mime="text/csv",
-        )
-        download_col2.download_button(
-            "Download rows requiring fix",
-            data=dataframe_to_csv_bytes(invalid_df2),
-            file_name="batch_invalid_rows.csv",
-            mime="text/csv",
-        )
+    if not scored_df.empty:
+        scored_df = apply_policy_to_dataframe(scored_df, artifacts)
+        scored_df = build_explanation_block(scored_df, artifacts)
 
+        col1, col2 = st.columns(2)
+        col1.plotly_chart(plot_batch_score_histogram(scored_df), width="stretch")
+        col2.plotly_chart(plot_action_distribution(scored_df), width="stretch")
+        col3, col4 = st.columns(2)
+        col3.plotly_chart(plot_stage_distribution(scored_df), width="stretch")
+        col4.plotly_chart(plot_data_quality_summary(scored_df, invalid_df2), width="stretch")
+        st.plotly_chart(plot_reason_frequency(scored_df), width="stretch")
+
+    with st.expander("Scored Output Preview", expanded=True):
+        st.dataframe(scored_df.head(100), width="stretch", hide_index=True)
+
+    if not invalid_df2.empty:
+        with st.expander("Rows Requiring Fix", expanded=False):
+            st.dataframe(invalid_df2.head(100), width="stretch", hide_index=True)
+
+    download_col1, download_col2 = st.columns(2)
+    download_col1.download_button(
+        "Download scored output",
+        data=dataframe_to_csv_bytes(scored_df),
+        file_name="batch_scored_output.csv",
+        mime="text/csv",
+        width="stretch",
+    )
+    download_col2.download_button(
+        "Download rows requiring fix",
+        data=dataframe_to_csv_bytes(invalid_df2),
+        file_name="batch_invalid_rows.csv",
+        mime="text/csv",
+        width="stretch",
+    )
+
+    if st.button("Clear batch session", width="stretch", key="clear_batch_session_btn"):
+        st.session_state.batch_input_df = None
+        st.session_state.pop("batch_scored_df", None)
+        st.session_state.pop("batch_invalid_df", None)
+        st.session_state.pop("batch_summary", None)
+        st.rerun()
+
+
+## Thêm csv mặc đ
+SAMPLE_BATCH_PATH = Path("sample_data/test_batch.csv")
+
+
+@st.cache_data
+def load_sample_batch_bytes() -> bytes:
+    return SAMPLE_BATCH_PATH.read_bytes()
+
+
+@st.cache_data
+def load_sample_batch_df() -> pd.DataFrame:
+    return pd.read_csv(SAMPLE_BATCH_PATH)
 
 def render_policy_view(artifacts: AppArtifacts) -> None:
     st.subheader("Decision Policy")
