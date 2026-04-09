@@ -1,0 +1,18 @@
+{
+  "pack_name": "homecredit_proxy_product_pack_v1",
+  "source_notebook_4_dir": "/kaggle/input/notebooks/hongvittrnh/notebook-4-0804/homecredit_proxy_notebook_04_business",
+  "source_notebook_5_dir": "/kaggle/input/notebooks/hongvittrnh/notebook-5/homecredit_proxy_notebook_05_benchmark_registry",
+  "work_dir_notebook_6": "/kaggle/working/homecredit_proxy_notebook_06_product_pack",
+  "exports": [
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/policy_zone_simulation.csv",
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/policy_stage_summary.csv",
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/streamlit_input_schema.csv",
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/policy_rules.json",
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/sample_request_payload.json",
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/sample_response_payload.json",
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/business_glossary.md",
+    "/kaggle/working/homecredit_proxy_notebook_06_product_pack/unified_inference_service.joblib"
+  ],
+  "score_note": "Higher score_300_900 means higher risk.",
+  "deployment_note": "Load unified_inference_service.joblib in Streamlit/API. Use policy_rules.json for action mapping and streamlit_input_schema.csv for UI fields."
+}

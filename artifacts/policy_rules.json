@@ -1,0 +1,47 @@
+{
+  "score_semantics": "Higher score_300_900 means higher risk.",
+  "champion_decision_stage": "B",
+  "policy_design_note": "Stage A uses an operational override in notebook 6 to reduce review overload and keep the onboarding flow practical. Stages B and C stay close to registry thresholds.",
+  "stages": {
+    "A": {
+      "policy_mode": "starter_offer_only",
+      "recommended_role": "starter_offer",
+      "policy_variant": "stage_a_operational_override_v2",
+      "review_threshold_score_300_900": 821.9200038933097,
+      "reject_threshold_score_300_900": 821.9200038933097,
+      "small_offer_threshold_score_300_900": 814.7778705540012,
+      "zone_labels": [
+        "review_or_decline",
+        "starter_loan_small",
+        "starter_loan_standard"
+      ]
+    },
+    "B": {
+      "policy_mode": "full_decision",
+      "recommended_role": "decision_champion",
+      "policy_variant": "registry_default",
+      "review_threshold_score_300_900": 742.76188562518,
+      "reject_threshold_score_300_900": 746.8334728904192,
+      "small_offer_threshold_score_300_900": 734.9940770568346,
+      "zone_labels": [
+        "reject_or_intensive_review",
+        "manual_review",
+        "approve_standard",
+        "approve_preferred"
+      ]
+    },
+    "C": {
+      "policy_mode": "guardrail_only",
+      "recommended_role": "collection_guardrail",
+      "policy_variant": "registry_default",
+      "review_threshold_score_300_900": 724.9974588391141,
+      "reject_threshold_score_300_900": 796.1996621461922,
+      "small_offer_threshold_score_300_900": null,
+      "zone_labels": [
+        "intensive_collection_priority",
+        "high_risk_review_priority",
+        "monitor_or_standard_queue"
+      ]
+    }
+  }
+}

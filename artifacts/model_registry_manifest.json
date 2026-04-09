@@ -1,0 +1,84 @@
+{
+  "registry_name": "homecredit_proxy_stage_registry_v1",
+  "source_notebook_4_dir": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business",
+  "work_dir_notebook_5": "/kaggle/working/homecredit_proxy_notebook_05_benchmark_registry",
+  "global_note": "Notebook 5 benchmark + registry package. score_proba is not calibrated PD. Higher score means higher risk. Stage A is starter-offer model, Stage B is main decision candidate, Stage C is guardrail/collection.",
+  "champion_decision_stage": "B",
+  "stages": {
+    "A": {
+      "registry_role": "active_guarded_model",
+      "stage_name": "Application / New-to-bank Starter Offer",
+      "policy_mode": "starter_offer_only",
+      "ready_for_nb5_business_strict": false,
+      "ready_for_product_scoring_api": true,
+      "n_features_kept": 2,
+      "metrics": {
+        "auc_valid": 0.5463692149353663,
+        "ks_valid": 0.12284678653664238,
+        "pr_auc_valid": 0.026585901989567232
+      },
+      "recommended_thresholds": {
+        "review_threshold_score_300_900": 814.7778705540012,
+        "reject_threshold_score_300_900": 829.9396536594068
+      },
+      "recommended_role": "starter_offer",
+      "recommended_use": "starter loan recommendation + manual review support",
+      "artifacts": {
+        "model": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_a_model.joblib",
+        "valid_scored": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_a_valid_scored.parquet",
+        "product_scored": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_a_product_scored.parquet",
+        "band_table": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_a_band_table.csv"
+      }
+    },
+    "B": {
+      "registry_role": "champion_decision_model",
+      "stage_name": "Behavior / Thin-file",
+      "policy_mode": "full_decision",
+      "ready_for_nb5_business_strict": true,
+      "ready_for_product_scoring_api": true,
+      "n_features_kept": 6,
+      "metrics": {
+        "auc_valid": 0.6278781851715041,
+        "ks_valid": 0.2253600504900492,
+        "pr_auc_valid": 0.03472437037142042
+      },
+      "recommended_thresholds": {
+        "review_threshold_score_300_900": 742.76188562518,
+        "reject_threshold_score_300_900": 746.8334728904192
+      },
+      "recommended_role": "decision_champion",
+      "recommended_use": "ranking + cutoff exploration + review prioritization",
+      "artifacts": {
+        "model": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_b_model.joblib",
+        "valid_scored": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_b_valid_scored.parquet",
+        "product_scored": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_b_product_scored.parquet",
+        "band_table": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_b_band_table.csv"
+      }
+    },
+    "C": {
+      "registry_role": "active_guarded_model",
+      "stage_name": "Collection / Mature risk",
+      "policy_mode": "guardrail_only",
+      "ready_for_nb5_business_strict": false,
+      "ready_for_product_scoring_api": true,
+      "n_features_kept": 6,
+      "metrics": {
+        "auc_valid": 0.6271892182758576,
+        "ks_valid": 0.23954001160269406,
+        "pr_auc_valid": 0.10659370912005713
+      },
+      "recommended_thresholds": {
+        "review_threshold_score_300_900": 724.9974588391141,
+        "reject_threshold_score_300_900": 796.1996621461922
+      },
+      "recommended_role": "collection_guardrail",
+      "recommended_use": "high-risk prioritization + collections treatment support",
+      "artifacts": {
+        "model": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_c_model.joblib",
+        "valid_scored": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_c_valid_scored.parquet",
+        "product_scored": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_c_product_scored.parquet",
+        "band_table": "/kaggle/input/notebooks/hongvittrnh/notebook-4/homecredit_proxy_notebook_04_business/stage_c_band_table.csv"
+      }
+    }
+  }
+}

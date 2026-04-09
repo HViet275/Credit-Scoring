@@ -1,0 +1,16 @@
+{
+  "customer_id": "B_DEMO_001",
+  "tenure_months": 6,
+  "max_dpd": 3,
+  "main_income": 15000000,
+  "recent_ontime_ratio": 0.9,
+  "num_open_loans": 1,
+  "external_risk_score": 640,
+  "installment_paid_before_due_ratio": 0.9,
+  "b_has_paid_before_due_signal": 1,
+  "b_has_recent_dpd": 1,
+  "b_annuity_max": 5000000,
+  "b_amtinstpaidbefdue_max": 4500000,
+  "b_paid_before_due_to_annuity_ratio": 0.9,
+  "b_avgmaxdpdlast9m_max": 3
+}

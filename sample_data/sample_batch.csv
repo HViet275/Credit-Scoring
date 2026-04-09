@@ -1,0 +1,4 @@
+customer_id,tenure_months,max_dpd,main_income,recent_ontime_ratio,num_open_loans,external_risk_score,installment_paid_before_due_ratio,a_has_external_credit_exposure,a_tax_amount_4527230_max,b_has_paid_before_due_signal,b_has_recent_dpd,b_annuity_max,b_amtinstpaidbefdue_max,b_paid_before_due_to_annuity_ratio,b_avgmaxdpdlast9m_max,c_actualdpd_max,c_recent_40dpd_flag,c_avgdbddpdlast24m_max,c_avgdpdtolclosure24_max,c_recent_vs_long_dpd_ratio,c_days_since_last_40dpd
+A_DEMO_001,0,0,12000000,0.95,1,650,0.0,1,12000000,,,,,,,,,,,
+B_DEMO_001,6,3,15000000,0.9,1,640,0.9,,,1,1,5000000,4500000,0.9,3,,,,,,
+C_DEMO_001,24,60,10000000,0.45,2,520,0.2,,,,,,,,60,1,40,35,1.5,20

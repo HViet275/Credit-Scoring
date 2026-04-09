@@ -1,0 +1,5 @@
+stage,field_name,field_order,data_type_hint,required_for_model,ui_group
+ALL,customer_id,1,string,false,identity
+ALL,tenure_months,2,numeric,false,stage_router
+ALL,max_dpd,3,numeric,false,stage_router
+ALL,main_income,4,numeric,false,business_context
