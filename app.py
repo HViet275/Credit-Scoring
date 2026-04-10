@@ -1,55 +1,26 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
-def get_theme_type() -> str:
-    try:
-        return getattr(st.context.theme, "type", "light")
-    except Exception:
-        return "light"
-
-
-def get_theme_tokens() -> dict:
-    theme_type = get_theme_type()
-    if theme_type == "dark":
-        return {
-            "theme_type": "dark",
-            "plotly_template": "plotly_dark",
-            "card_bg": "#111827",
-            "border": "#334155",
-            "text": "#E5E7EB",
-            "muted": "#94A3B8",
-        }
-    return {
-        "theme_type": "light",
-        "plotly_template": "plotly_white",
-        "card_bg": "#FFFFFF",
-        "border": "#E2E8F0",
-        "text": "#0F172A",
-        "muted": "#475569",
-    }
-
-
-THEME = get_theme_tokens()
 from src.explain import build_explanation_block
 from src.inference import get_stage_feature_map
 from src.loader import AppArtifacts, load_artifacts
 from src.policy import apply_policy_to_dataframe, build_policy_threshold_table
 from src.router import detect_stage, detect_stage_dataframe
-from src.scorer import score_batch_dataframe, score_dataframe, score_single_record
+from src.scorer import score_batch_dataframe, score_dataframe
 from src.utils import (
     coerce_input_types,
-    compact_json,
     dataframe_from_single_payload,
     dataframe_to_csv_bytes,
     dataframe_to_download_bytes,
     humanize_token,
     load_sample_payload,
-    status_color,
     validate_required_columns,
 )
 from src.validation import validate_batch_dataframe, validate_single_record
@@ -68,11 +39,22 @@ APP_TITLE = "Credit Decision Console"
 BASE_DIR = Path(__file__).resolve().parent
 ARTIFACT_DIR = BASE_DIR / "artifacts"
 SAMPLE_DIR = BASE_DIR / "sample_data"
+SAMPLE_BATCH_PATH = SAMPLE_DIR / "test_batch.csv"
 
 
 @st.cache_resource(show_spinner=False)
 def get_artifacts() -> AppArtifacts:
     return load_artifacts(ARTIFACT_DIR)
+
+
+@st.cache_data(show_spinner=False)
+def load_sample_batch_bytes() -> bytes:
+    return SAMPLE_BATCH_PATH.read_bytes()
+
+
+@st.cache_data(show_spinner=False)
+def load_sample_batch_df() -> pd.DataFrame:
+    return pd.read_csv(SAMPLE_BATCH_PATH)
 
 
 def run_scoring_pipeline(df: pd.DataFrame, artifacts: AppArtifacts) -> pd.DataFrame:
@@ -90,27 +72,198 @@ def inject_css() -> None:
         <style>
         :root {
             --bg-main: #f4f7fb;
+            --navy-950: #081a33;
             --navy-900: #0b1f3a;
-            --navy-800: #132b4f;
+            --navy-800: #16345e;
+            --navy-700: #204e8b;
             --slate-700: #42526b;
+            --slate-600: #52637d;
             --slate-500: #64748b;
             --line: #d8e1ee;
-            --card-bg: rgba(255,255,255,0.94);
+            --line-soft: #e8eef7;
+            --card-bg: rgba(255,255,255,0.96);
             --teal: #0ea5a4;
-            --cyan: #3b82f6;
-            --gold: #d4a72c;
+            --cyan: #2563eb;
         }
+
+        html {scroll-behavior: smooth;}
         .stApp {
             background: radial-gradient(circle at top left, #eef4ff 0%, #f6f9fc 40%, #eef3f8 100%);
             color: var(--navy-900);
             font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-        .main .block-container {padding-top: 1.25rem; padding-bottom: 2.2rem; max-width: 1340px;}
+        .main .block-container {
+            padding-top: 1.1rem;
+            padding-bottom: 2.4rem;
+            max-width: 1340px;
+        }
+
         [data-testid="stSidebar"] {
             background: linear-gradient(180deg, #0b1f3a 0%, #132b4f 100%);
             border-right: 1px solid rgba(255,255,255,0.08);
         }
+        [data-testid="stSidebar"] .block-container {
+            padding-top: 1.2rem;
+            padding-bottom: 1.2rem;
+        }
         [data-testid="stSidebar"] * {color: #ecf4ff !important;}
+
+        .sidebar-section-title {
+            font-size: 1.02rem;
+            font-weight: 800;
+            margin: 0 0 0.7rem 0;
+            color: #ffffff;
+        }
+        .sidebar-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+            padding: 0.95rem 0.95rem 0.8rem 0.95rem;
+            margin-bottom: 1rem;
+        }
+        .sidebar-copy {
+            color: rgba(236,244,255,0.76);
+            line-height: 1.65;
+            font-size: 0.93rem;
+        }
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            margin-top: 0.45rem;
+            margin-bottom: 0.9rem;
+        }
+        .sidebar-nav a {
+            display: block;
+            text-decoration: none;
+            color: rgba(255,255,255,0.84);
+            padding: 0.72rem 0.82rem;
+            border-radius: 12px;
+            font-size: 0.96rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            transition: 0.2s ease;
+        }
+        .sidebar-nav a:hover {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.08);
+            color: #ffffff;
+        }
+        .sidebar-nav a.active {
+            background: linear-gradient(135deg, rgba(14,165,164,0.18) 0%, rgba(37,99,235,0.24) 100%);
+            border-color: rgba(147,197,253,0.28);
+            color: #ffffff;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+        }
+
+        .hero-shell {
+            padding: 26px 28px;
+            border-radius: 28px;
+            background: linear-gradient(135deg, #0b1f3a 0%, #16345e 58%, #204e8b 100%);
+            box-shadow: 0 18px 40px rgba(11,31,58,0.18);
+            margin-bottom: 1rem;
+            color: white;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .hero-kicker {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: rgba(231,242,255,0.82);
+            margin-bottom: 0.4rem;
+            font-weight: 700;
+        }
+        .hero-title {
+            font-size: 2.25rem;
+            font-weight: 800;
+            margin-bottom: 0.35rem;
+            color: white;
+            line-height: 1.15;
+        }
+        .hero-sub {
+            color: rgba(231,242,255,0.9);
+            margin-bottom: 1rem;
+            font-size: 1.02rem;
+            line-height: 1.7;
+            max-width: 980px;
+        }
+        .hero-meta {
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin-top: 0.4rem;
+            margin-bottom: 1rem;
+        }
+        .hero-pill {
+            padding: 0.46rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.12);
+            font-size: 0.85rem;
+            color: #f8fbff;
+            font-weight: 700;
+        }
+        .stage-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        .stage-card {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            padding: 1rem;
+            min-height: 156px;
+        }
+        .stage-label {
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.84;
+            margin-bottom: 0.35rem;
+        }
+        .stage-title {
+            font-size: 1.08rem;
+            font-weight: 800;
+            margin-bottom: 0.35rem;
+        }
+        .stage-text {
+            font-size: 0.94rem;
+            line-height: 1.62;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .section-wrap {
+            padding-top: 0.4rem;
+            padding-bottom: 1.6rem;
+            border-bottom: 1px solid var(--line-soft);
+            margin-bottom: 0.55rem;
+        }
+        .section-title-anchor {
+            scroll-margin-top: 72px;
+        }
+        .section-title-xl {
+            font-size: 1.95rem;
+            font-weight: 800;
+            color: var(--navy-900);
+            margin-bottom: 0.28rem;
+            line-height: 1.15;
+        }
+        .section-subtitle {
+            color: var(--slate-600);
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            line-height: 1.7;
+        }
+        .section-shell {
+            border: 1px solid var(--line-soft);
+            border-radius: 22px;
+            padding: 1.2rem;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 10px 28px rgba(11,31,58,0.05);
+        }
+
         .decision-card, .reason-card, .info-card {
             border: 1px solid var(--line);
             border-radius: 22px;
@@ -132,34 +285,6 @@ def inject_css() -> None:
             font-weight: 700;
         }
         .card-value {font-size: 1.24rem; font-weight: 800; color: var(--navy-900); line-height: 1.3;}
-        .hero-shell {
-            padding: 22px 24px;
-            border-radius: 28px;
-            background: linear-gradient(135deg, #0b1f3a 0%, #16345e 60%, #20507e 100%);
-            box-shadow: 0 18px 40px rgba(11,31,58,0.18);
-            margin-bottom: 1rem;
-            color: white;
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        .hero-kicker {
-            font-size: 0.78rem;
-            text-transform: uppercase;
-            letter-spacing: 0.14em;
-            color: rgba(231,242,255,0.82);
-            margin-bottom: 0.4rem;
-            font-weight: 700;
-        }
-        .hero-title {font-size: 2.1rem; font-weight: 800; margin-bottom: 0.25rem; color: white;}
-        .hero-sub {color: rgba(231,242,255,0.88); margin-bottom: 0.9rem; font-size: 1rem;}
-        .hero-meta {display:flex; gap:10px; flex-wrap:wrap; margin-top: 0.4rem;}
-        .hero-pill {
-            padding: 0.45rem 0.75rem;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.12);
-            font-size: 0.85rem;
-            color: #f8fbff;
-        }
         .section-title {
             font-size: 1.02rem;
             font-weight: 800;
@@ -179,20 +304,6 @@ def inject_css() -> None:
             font-weight: 700 !important;
             letter-spacing: 0.01em;
         }
-        .stTabs [data-baseweb="tab-list"] {gap: 10px;}
-        .stTabs [data-baseweb="tab"] {
-            background: rgba(255,255,255,0.72);
-            border-radius: 999px;
-            padding: 0.45rem 1rem;
-            border: 1px solid var(--line);
-            color: var(--navy-800);
-            font-weight: 700;
-        }
-        .stTabs [aria-selected="true"] {
-            background: linear-gradient(135deg, #0f766e 0%, #2563eb 100%) !important;
-            color: #ffffff !important;
-            border-color: transparent !important;
-        }
         .stButton > button, .stDownloadButton > button {
             border-radius: 999px;
             border: 1px solid rgba(15,118,110,0.18);
@@ -205,9 +316,148 @@ def inject_css() -> None:
             border: none;
             box-shadow: 0 12px 28px rgba(37,99,235,0.22);
         }
+
+        .footer-shell {
+            margin-top: 1.2rem;
+            padding: 1.5rem 1.5rem 1rem 1.5rem;
+            border-radius: 24px 24px 0 0;
+            background: linear-gradient(180deg, #0b1f3a 0%, #10284a 100%);
+            color: rgba(255,255,255,0.9);
+        }
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr 1fr;
+            gap: 1.2rem;
+        }
+        .footer-title {
+            font-size: 0.96rem;
+            font-weight: 800;
+            margin-bottom: 0.7rem;
+            color: #ffffff;
+        }
+        .footer-copy {
+            font-size: 0.92rem;
+            line-height: 1.65;
+            color: rgba(255,255,255,0.76);
+        }
+        .footer-link {
+            display: block;
+            color: rgba(255,255,255,0.84) !important;
+            text-decoration: none;
+            font-size: 0.92rem;
+            margin-bottom: 0.42rem;
+        }
+        .footer-link:hover {
+            color: #ffffff !important;
+            text-decoration: underline;
+        }
+        .footer-bottom {
+            margin-top: 1rem;
+            padding-top: 0.9rem;
+            border-top: 1px solid rgba(255,255,255,0.12);
+            font-size: 0.88rem;
+            color: rgba(255,255,255,0.68);
+        }
+
+        @media (max-width: 1100px) {
+            .stage-grid, .footer-grid {
+                grid-template-columns: 1fr;
+            }
+            .hero-title {
+                font-size: 1.9rem;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
+    )
+
+
+def inject_scroll_observer() -> None:
+    components.html(
+        """
+        <script>
+        const setupSpaNav = () => {
+          const rootDoc = window.parent.document;
+          const navLinks = Array.from(rootDoc.querySelectorAll('#sidebar-spa-nav a'));
+          const sectionIds = ['single-decision', 'batch-decision', 'policy'];
+          const sections = sectionIds
+            .map(id => rootDoc.getElementById(`${id}-title`) || rootDoc.getElementById(id))
+            .filter(Boolean);
+
+          if (!navLinks.length || !sections.length) return;
+
+          if (window.parent.__spaNavCleanup) {
+            try { window.parent.__spaNavCleanup(); } catch (e) {}
+          }
+
+          const updateActive = (id) => {
+            navLinks.forEach(link => link.classList.remove('active'));
+            const active = navLinks.find(link => link.getAttribute('href') === `#${id}`);
+            if (active) active.classList.add('active');
+          };
+
+          const scrollToSection = (sectionId) => {
+            const target = rootDoc.getElementById(`${sectionId}-title`) || rootDoc.getElementById(sectionId);
+            if (!target) return;
+            updateActive(sectionId);
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => {
+              try { window.parent.scrollBy({ top: -12, behavior: 'instant' }); } catch (e) {}
+            }, 250);
+          };
+
+          const clickHandlers = [];
+          navLinks.forEach(link => {
+            const handler = (e) => {
+              const href = link.getAttribute('href');
+              if (!href || !href.startsWith('#')) return;
+              e.preventDefault();
+              scrollToSection(href.slice(1));
+            };
+            link.addEventListener('click', handler);
+            clickHandlers.push([link, handler]);
+          });
+
+          const getClosestSection = () => {
+            const viewportOffset = 120;
+            let bestId = sectionIds[0];
+            let bestDistance = Infinity;
+            sections.forEach((section, idx) => {
+              const distance = Math.abs(section.getBoundingClientRect().top - viewportOffset);
+              if (distance < bestDistance) {
+                bestDistance = distance;
+                bestId = sectionIds[idx];
+              }
+            });
+            return bestId;
+          };
+
+          const scrollHost = rootDoc.querySelector('section[data-testid="stMain"]') || window.parent;
+          let ticking = false;
+          const onScroll = () => {
+            if (ticking) return;
+            ticking = true;
+            window.parent.requestAnimationFrame(() => {
+              updateActive(getClosestSection());
+              ticking = false;
+            });
+          };
+
+          scrollHost.addEventListener('scroll', onScroll, { passive: true });
+          window.parent.addEventListener('scroll', onScroll, { passive: true });
+          onScroll();
+
+          window.parent.__spaNavCleanup = () => {
+            clickHandlers.forEach(([link, handler]) => link.removeEventListener('click', handler));
+            scrollHost.removeEventListener('scroll', onScroll);
+            window.parent.removeEventListener('scroll', onScroll);
+          };
+        };
+        setTimeout(setupSpaNav, 500);
+        </script>
+        """,
+        height=0,
     )
 
 
@@ -230,60 +480,102 @@ def compute_data_quality_label(completeness_ratio: float) -> str:
 
 
 def render_sidebar(artifacts: AppArtifacts) -> None:
-    st.sidebar.title("System Snapshot")
-    st.sidebar.write(f"**Current champion stage:** {artifacts.champion_stage}")
-    st.sidebar.write(f"**App mode:** {'Demo fallback' if artifacts.demo_mode else 'Artifact-backed'}")
-
     manifest = artifacts.registry_manifest or {}
-    st.sidebar.write(f"**Model version:** {manifest.get('model_version', 'n/a')}")
-    st.sidebar.write(f"**Policy version:** {manifest.get('policy_version', 'n/a')}")
 
     with st.sidebar:
-        st.markdown("## Credit Scoring System")
-        st.caption(
-        "An end-to-end credit scoring app for single-case review, "
-        "batch scoring, and decision policy interpretation."
-        )
-
-        st.markdown("### Functions")
+        st.markdown('<div class="sidebar-section-title">System Snapshot</div>', unsafe_allow_html=True)
         st.markdown(
-        """
-        - **Single Scoring**
-        - **Batch Scoring**
-        - **Decision Policy**
-        - **Artifact-backed Deployment**
-        """
+            f"""
+            <div class="sidebar-card">
+                <div class="sidebar-copy"><b style="color:#fff;">Current champion stage:</b> {artifacts.champion_stage}</div>
+                <div style="height:8px;"></div>
+                <div class="sidebar-copy"><b style="color:#fff;">App mode:</b> {'Demo fallback' if artifacts.demo_mode else 'Artifact-backed'}</div>
+                <div style="height:8px;"></div>
+                <div class="sidebar-copy"><b style="color:#fff;">Model version:</b> {manifest.get('model_version', 'n/a')}</div>
+                <div style="height:8px;"></div>
+                <div class="sidebar-copy"><b style="color:#fff;">Policy version:</b> {manifest.get('policy_version', 'n/a')}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
-    with st.expander("Loaded artifact files", expanded=False):
-        st.write("Model, policy, schema, and manifest files are loaded from the artifacts folder.")
+        st.markdown('<div class="sidebar-section-title">Menu</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="sidebar-nav" id="sidebar-spa-nav">
+                <a href="#single-decision" class="active">Single Decision</a>
+                <a href="#batch-decision">Batch Decision</a>
+                <a href="#policy">Policy</a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    with st.expander("Expected input fields", expanded=False):
-        st.write("Check the required fields for scoring input.")
+        st.markdown('<div class="sidebar-section-title">Credit Scoring System</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="sidebar-copy">
+                A one-page credit decisioning workspace for single-case review, batch processing,
+                and policy-led deployment governance.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-def render_hero() -> None:
+
+def render_hero(artifacts: AppArtifacts) -> None:
     st.markdown(
-        r"""
+        f"""
         <div class="hero-shell">
             <div class="hero-kicker">Retail Banking • Decisioning • Payment Risk</div>
-            <div class="hero-title">Credit Scoring</div>
-            <div class="hero-sub">A banking-style scoring workspace for application routing, champion-model inference, and policy-led payment decisions.</div>
+            <div class="hero-title">Credit Scoring Workspace</div>
+            <div class="hero-sub">
+                A comprehensive credit scoring workspace for application routing, champion-model inference,
+                batch review operations, and policy decisions across the full customer lifecycle.
+                Current champion routing is configured to Stage <b>{artifacts.champion_stage}</b>.
+            </div>
             <div class="hero-meta">
-                <div class="hero-pill">Champion inference enabled</div>
-                <div class="hero-pill">Stage-aware policy routing</div>
-                <div class="hero-pill">Batch review and audit trail</div>
+                <div class="hero-pill">Single-case decisioning</div>
+                <div class="hero-pill">Batch decision processing</div>
+                <div class="hero-pill">Policy-led governance</div>
+                <div class="hero-pill">Stage-aware A / B / C routing</div>
+            </div>
+            <div class="stage-grid">
+                <div class="stage-card">
+                    <div class="stage-label">Stage A</div>
+                    <div class="stage-title">Application / New-to-Bank</div>
+                    <div class="stage-text">
+                        Evaluate first-time or thin-file applicants using application attributes,
+                        affordability signals, and external credit context for onboarding decisions.
+                    </div>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-label">Stage B</div>
+                    <div class="stage-title">Early Behavior / Champion Stage</div>
+                    <div class="stage-text">
+                        Score customers with early repayment behavior and initial portfolio signals.
+                        This stage is optimized for champion inference and operational routing.
+                    </div>
+                </div>
+                <div class="stage-card">
+                    <div class="stage-label">Stage C</div>
+                    <div class="stage-title">Mature Portfolio / Risk Control</div>
+                    <div class="stage-text">
+                        Assess customers with richer repayment history to support line management,
+                        policy control, and portfolio-level risk monitoring.
+                    </div>
+                </div>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
+    with st.expander("Loaded artifact files", expanded=False):
+        st.write("Model, policy, schema, and manifest files are loaded from the artifacts folder.")
 
-def render_info_card(label: str, value: str) -> None:
-    st.markdown(
-        f'<div class="info-card"><div class="card-label">{label}</div><div class="card-value">{value}</div></div>',
-        unsafe_allow_html=True,
-    )
+    with st.expander("Expected input fields", expanded=False):
+        st.write("Check the required fields for scoring input.")
 
 
 def render_decision_summary(row: dict, policy_thresholds: pd.DataFrame) -> None:
@@ -352,9 +644,10 @@ def render_warning_block(row: dict) -> None:
     if technical_status_note:
         st.info(technical_status_note)
 
+
 FRIENDLY_FIELD_LABELS = {
     "customer_id": "Customer ID",
-    "main_income": "Main Monthly Income",
+    "main_income": "Main Monthly Income ($)",
     "num_open_loans": "Number of Open Loans",
     "recent_ontime_ratio": "Recent On-time Payment Ratio",
     "utilization_ratio": "Credit Utilization Ratio",
@@ -373,23 +666,61 @@ FRIENDLY_FIELD_LABELS = {
     "c_avgdbddpdlast24m_max": "Average Late Payment Severity (24 Months)",
     "c_avgdpdtolclosure24_max": "Average DPD to Closure (24 Months)",
     "c_recent_vs_long_dpd_ratio": "Recent vs Long-term Delinquency Ratio",
-    "c_days_since_last_40dpd": "Days Since Last 40+ DPD"
+    "c_days_since_last_40dpd": "Days Since Last 40+ DPD",
 }
+
 
 def build_single_form(sample_payload: dict, artifacts: AppArtifacts) -> dict:
     left, right = st.columns(2)
     with left:
         st.markdown("<div class='section-title'>Customer Info</div>", unsafe_allow_html=True)
         customer_id = st.text_input("Customer ID", value=str(sample_payload.get("customer_id", "DEMO_001")))
-        tenure_months = st.number_input("Tenure Months", min_value=0.0, value=float(sample_payload.get("tenure_months", 0) or 0), step=1.0)
-        main_income = st.number_input("Main Income", min_value=0.0, value=float(sample_payload.get("main_income", 0) or 0), step=1000000.0)
-        num_open_loans = st.number_input("Num Open Loans", min_value=0.0, value=float(sample_payload.get("num_open_loans", 0) or 0), step=1.0)
-        external_risk_score = st.number_input("External Risk Score", min_value=0.0, value=float(sample_payload.get("external_risk_score", 0) or 0), step=1.0)
+        tenure_months = st.number_input(
+            "Tenure Months",
+            min_value=0.0,
+            value=float(sample_payload.get("tenure_months", 0) or 0),
+            step=1.0,
+        )
+        main_income = st.number_input(
+            "Main Income ($)",
+            min_value=0.0,
+            value=float(sample_payload.get("main_income", 0) or 0),
+            step=1000000.0,
+        )
+        num_open_loans = st.number_input(
+            "Num Open Loans",
+            min_value=0.0,
+            value=float(sample_payload.get("num_open_loans", 0) or 0),
+            step=1.0,
+        )
+        external_risk_score = st.number_input(
+            "External Risk Score",
+            min_value=0.0,
+            value=float(sample_payload.get("external_risk_score", 0) or 0),
+            step=1.0,
+        )
     with right:
         st.markdown("<div class='section-title'>Repayment Behavior</div>", unsafe_allow_html=True)
-        max_dpd = st.number_input("Max DPD", min_value=0.0, value=float(sample_payload.get("max_dpd", 0) or 0), step=1.0)
-        recent_ontime_ratio = st.slider("Recent On-time Ratio", min_value=0.0, max_value=1.0, value=float(sample_payload.get("recent_ontime_ratio", 0.8) or 0.8), step=0.01)
-        installment_paid_before_due_ratio = st.slider("Installment Paid Before Due Ratio", min_value=0.0, max_value=1.0, value=float(sample_payload.get("installment_paid_before_due_ratio", 0.0) or 0.0), step=0.01)
+        max_dpd = st.number_input(
+            "Max DPD",
+            min_value=0.0,
+            value=float(sample_payload.get("max_dpd", 0) or 0),
+            step=1.0,
+        )
+        recent_ontime_ratio = st.slider(
+            "Recent On-time Ratio",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(sample_payload.get("recent_ontime_ratio", 0.8) or 0.8),
+            step=0.01,
+        )
+        installment_paid_before_due_ratio = st.slider(
+            "Installment Paid Before Due Ratio",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(sample_payload.get("installment_paid_before_due_ratio", 0.0) or 0.0),
+            step=0.01,
+        )
 
     payload = {
         "customer_id": customer_id,
@@ -426,9 +757,9 @@ def build_single_form(sample_payload: dict, artifacts: AppArtifacts) -> dict:
 
     with st.expander("Advanced JSON Input", expanded=False):
         json_text = st.text_area(
-        "Optional JSON override",
-        value=json.dumps(payload, indent=2, ensure_ascii=False),
-        height=320,
+            "Optional JSON override",
+            value=json.dumps(payload, indent=2, ensure_ascii=False),
+            height=320,
         )
         try:
             payload = json.loads(json_text)
@@ -439,7 +770,7 @@ def build_single_form(sample_payload: dict, artifacts: AppArtifacts) -> dict:
 
 
 def render_single_case(artifacts: AppArtifacts) -> None:
-    st.subheader("Single Decision")
+    st.markdown("<div class='section-title'>Single-case Review</div>", unsafe_allow_html=True)
     st.caption("Use the guided form below to score one customer and review the decision summary.")
     sample_payload = load_sample_payload(SAMPLE_DIR / "sample_request_payload.json")
     payload = build_single_form(sample_payload, artifacts)
@@ -457,7 +788,7 @@ def render_single_case(artifacts: AppArtifacts) -> None:
             else:
                 st.warning(f"{issue.field}: {issue.message}")
 
-    if st.button("Run Decision", type="primary"):
+    if st.button("Run Decision", type="primary", key="run_single_decision_btn"):
         if not summary.is_valid:
             st.error("Please fix the required input issues before scoring.")
             return
@@ -501,11 +832,10 @@ def render_single_case(artifacts: AppArtifacts) -> None:
             mime="text/csv",
         )
 
-def render_batch_case(artifacts: AppArtifacts) -> None:
-    st.subheader("Batch Scoring")
-    st.caption("Upload a CSV file, validate rows, run scoring, and review the result dashboard.")
 
-    sample_path = SAMPLE_DIR / "sample_batch.csv"
+def render_batch_case(artifacts: AppArtifacts) -> None:
+    st.markdown("<div class='section-title'>Batch Processing</div>", unsafe_allow_html=True)
+    st.caption("Upload a CSV file, validate rows, run scoring, and review the batch decision dashboard.")
 
     if "batch_input_df" not in st.session_state:
         st.session_state.batch_input_df = None
@@ -516,33 +846,32 @@ def render_batch_case(artifacts: AppArtifacts) -> None:
         uploaded = st.file_uploader("Upload input CSV", type=["csv"], key="batch_uploader")
 
     with demo_col:
-        if sample_path.exists():
+        if SAMPLE_BATCH_PATH.exists():
             st.download_button(
                 label="Download sample CSV",
-                data=sample_path.read_bytes(),
+                data=load_sample_batch_bytes(),
                 file_name="sample_batch.csv",
                 mime="text/csv",
-                width="stretch",
+                use_container_width=True,
             )
-            if st.button("Use demo batch", width="stretch", key="use_demo_batch_btn"):
-                st.session_state.batch_input_df = pd.read_csv(sample_path)
-                st.success("Loaded demo batch from sample_data/sample_batch.csv")
+            if st.button("Use demo batch", use_container_width=True, key="use_demo_batch_btn"):
+                st.session_state.batch_input_df = load_sample_batch_df()
+                st.success("Loaded demo batch from sample_data/test_batch.csv")
         else:
-            st.caption("No sample CSV found in sample_data/sample_batch.csv")
+            st.caption("No sample CSV found in sample_data/test_batch.csv")
 
     if uploaded is not None:
         st.session_state.batch_input_df = pd.read_csv(uploaded)
 
     input_df = st.session_state.batch_input_df
-
     if input_df is None:
         return
 
     st.markdown("<div class='section-title'>Upload Preview</div>", unsafe_allow_html=True)
-    st.dataframe(input_df.head(20), width="stretch", hide_index=True)
+    st.dataframe(input_df.head(20), use_container_width=True, hide_index=True)
 
     missing = validate_required_columns(input_df, artifacts.schema)
-    valid_df, invalid_df, validation_summary = validate_batch_dataframe(input_df)
+    _, invalid_df, validation_summary = validate_batch_dataframe(input_df)
     duplicates = int(input_df["customer_id"].duplicated().sum()) if "customer_id" in input_df.columns else 0
 
     c1, c2, c3, c4, c5 = st.columns(5)
@@ -557,9 +886,7 @@ def render_batch_case(artifacts: AppArtifacts) -> None:
     if not invalid_df.empty:
         st.info("Some rows cannot be scored until input issues are fixed. You can still score the valid rows.")
 
-    run_batch = st.button("Run Batch Scoring", type="primary", key="run_batch_scoring_btn")
-
-    if run_batch:
+    if st.button("Run Batch Scoring", type="primary", key="run_batch_scoring_btn"):
         scored_df, invalid_df2, batch_summary = score_batch_dataframe(input_df, artifacts)
         if scored_df.empty and invalid_df2.empty:
             st.error("No output was produced.")
@@ -588,19 +915,19 @@ def render_batch_case(artifacts: AppArtifacts) -> None:
         scored_df = build_explanation_block(scored_df, artifacts)
 
         col1, col2 = st.columns(2)
-        col1.plotly_chart(plot_batch_score_histogram(scored_df), width="stretch")
-        col2.plotly_chart(plot_action_distribution(scored_df), width="stretch")
+        col1.plotly_chart(plot_batch_score_histogram(scored_df), use_container_width=True)
+        col2.plotly_chart(plot_action_distribution(scored_df), use_container_width=True)
         col3, col4 = st.columns(2)
-        col3.plotly_chart(plot_stage_distribution(scored_df), width="stretch")
-        col4.plotly_chart(plot_data_quality_summary(scored_df, invalid_df2), width="stretch")
-        st.plotly_chart(plot_reason_frequency(scored_df), width="stretch")
+        col3.plotly_chart(plot_stage_distribution(scored_df), use_container_width=True)
+        col4.plotly_chart(plot_data_quality_summary(scored_df, invalid_df2), use_container_width=True)
+        st.plotly_chart(plot_reason_frequency(scored_df), use_container_width=True)
 
     with st.expander("Scored Output Preview", expanded=True):
-        st.dataframe(scored_df.head(100), width="stretch", hide_index=True)
+        st.dataframe(scored_df.head(100), use_container_width=True, hide_index=True)
 
     if not invalid_df2.empty:
         with st.expander("Rows Requiring Fix", expanded=False):
-            st.dataframe(invalid_df2.head(100), width="stretch", hide_index=True)
+            st.dataframe(invalid_df2.head(100), use_container_width=True, hide_index=True)
 
     download_col1, download_col2 = st.columns(2)
     download_col1.download_button(
@@ -608,17 +935,17 @@ def render_batch_case(artifacts: AppArtifacts) -> None:
         data=dataframe_to_csv_bytes(scored_df),
         file_name="batch_scored_output.csv",
         mime="text/csv",
-        width="stretch",
+        use_container_width=True,
     )
     download_col2.download_button(
         "Download rows requiring fix",
         data=dataframe_to_csv_bytes(invalid_df2),
         file_name="batch_invalid_rows.csv",
         mime="text/csv",
-        width="stretch",
+        use_container_width=True,
     )
 
-    if st.button("Clear batch session", width="stretch", key="clear_batch_session_btn"):
+    if st.button("Clear batch session", use_container_width=True, key="clear_batch_session_btn"):
         st.session_state.batch_input_df = None
         st.session_state.pop("batch_scored_df", None)
         st.session_state.pop("batch_invalid_df", None)
@@ -626,24 +953,12 @@ def render_batch_case(artifacts: AppArtifacts) -> None:
         st.rerun()
 
 
-## Thêm csv mặc đ
-SAMPLE_BATCH_PATH = Path("sample_data/test_batch.csv")
-
-
-@st.cache_data
-def load_sample_batch_bytes() -> bytes:
-    return SAMPLE_BATCH_PATH.read_bytes()
-
-
-@st.cache_data
-def load_sample_batch_df() -> pd.DataFrame:
-    return pd.read_csv(SAMPLE_BATCH_PATH)
-
 def render_policy_view(artifacts: AppArtifacts) -> None:
-    st.subheader("Decision Policy")
-    st.caption("This section explains how model scores are translated into operational decisions.")
+    st.markdown("<div class='section-title'>Policy Governance</div>", unsafe_allow_html=True)
+    st.caption("Review how model scores are translated into operational decisions and stage-level thresholds.")
     st.markdown(
-        "The model score estimates relative risk. Policy rules then convert the score into an action, and each stage can use different score thresholds.")
+        "The model score estimates relative risk. Policy rules then convert the score into an action, and each stage can use different score thresholds."
+    )
 
     policy_thresholds = build_policy_threshold_table(artifacts.policy_rules)
     if not isinstance(policy_thresholds, pd.DataFrame):
@@ -670,21 +985,90 @@ def render_policy_view(artifacts: AppArtifacts) -> None:
             st.json(artifacts.inference_service)
 
 
+def render_section_start(section_id: str, title: str, subtitle: str, border: bool = True) -> None:
+    border_style = "" if border else " style='border-bottom:none;'"
+    st.markdown(
+        f"""
+        <div id="{section_id}" class="section-wrap"{border_style}>
+            <div id="{section_id}-title" class="section-title-anchor section-title-xl">{title}</div>
+            <div class="section-subtitle">{subtitle}</div>
+            <div class="section-shell">
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_section_end() -> None:
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+
+def render_footer() -> None:
+    current_year = datetime.now().year
+    st.markdown(
+        f"""
+        <div class="footer-shell">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-title">Credit Scoring System</div>
+                    <div class="footer-copy">
+                        A professional decisioning platform for single-case review, batch scoring operations,
+                        and policy-driven risk governance across retail banking workflows.
+                    </div>
+                </div>
+                <div>
+                    <div class="footer-title">Support / Help</div>
+                    <a class="footer-link" href="#">Documentation</a>
+                    <a class="footer-link" href="#">API Reference</a>
+                    <a class="footer-link" href="#">Contact Support</a>
+                </div>
+                <div>
+                    <div class="footer-title">Legal</div>
+                    <a class="footer-link" href="#">Privacy Policy</a>
+                    <a class="footer-link" href="#">Terms of Service</a>
+                    <a class="footer-link" href="#">Security</a>
+                </div>
+            </div>
+            <div class="footer-bottom">© {current_year} Credit Scoring System. All rights reserved.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def main() -> None:
-    st.set_page_config(page_title=APP_TITLE, page_icon="💳", layout="wide")
-    inject_css()
-    render_hero()
-
+    st.set_page_config(page_title=APP_TITLE, page_icon="💳", layout="wide", initial_sidebar_state="expanded")
     artifacts = get_artifacts()
+    inject_css()
     render_sidebar(artifacts)
+    render_hero(artifacts)
+    inject_scroll_observer()
 
-    tabs = st.tabs(["Single Decision", "Batch Scoring", "Decision Policy"])
-    with tabs[0]:
-        render_single_case(artifacts)
-    with tabs[1]:
-        render_batch_case(artifacts)
-    with tabs[2]:
-        render_policy_view(artifacts)
+    render_section_start(
+        "single-decision",
+        "Single Decision",
+        "Review one customer at a time, run stage-aware scoring, and inspect the final decision with score, band, and explanation.",
+    )
+    render_single_case(artifacts)
+    render_section_end()
+
+    render_section_start(
+        "batch-decision",
+        "Batch Decision",
+        "Upload a structured file, validate the schema, process multiple records, and export production-style batch decisions.",
+    )
+    render_batch_case(artifacts)
+    render_section_end()
+
+    render_section_start(
+        "policy",
+        "Policy",
+        "View stage thresholds, understand decision zones, and review the policy layer that translates model scores into business actions.",
+        border=False,
+    )
+    render_policy_view(artifacts)
+    render_section_end()
+
+    render_footer()
 
 
 if __name__ == "__main__":
