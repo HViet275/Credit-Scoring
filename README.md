@@ -55,5 +55,4 @@ It handles:
 3. Translating the probability into a standard `300-900` risk score (Higher = Riskier).
 4. Emitting a definitive `policy_action` (e.g., `approve_preferred`, `reject_or_intensive_review`) based on `policy_rules.json`.
 
-## 📌 Business Glossary
-Refer to `business_glossary.md` (generated in Notebook 6) for exact definitions of decision zones, scoring statuses, and reason codes used in the final inference outputs.
+
