@@ -39,7 +39,7 @@ APP_TITLE = "Credit Decision Console"
 BASE_DIR = Path(__file__).resolve().parent
 ARTIFACT_DIR = BASE_DIR / "artifacts"
 SAMPLE_DIR = BASE_DIR / "sample_data"
-SAMPLE_BATCH_PATH = SAMPLE_DIR / "test_batch.csv"
+SAMPLE_BATCH_PATH = SAMPLE_DIR / "sample_batch.csv"
 
 
 @st.cache_resource(show_spinner=False)
